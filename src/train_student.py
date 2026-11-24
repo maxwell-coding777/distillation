@@ -24,6 +24,7 @@ ap.add_argument('--w_feat', type=float, default=2.0)
 ap.add_argument('--seed', type=int, default=0)
 ap.add_argument('--threads', type=int, default=4)
 ap.add_argument('--name', default=None)
+ap.add_argument('--resume', action='store_true', help='resume from runs/<name>/ckpt.pt if present')
 ap.add_argument('--limit', type=int, default=0, help='debug: limit batches per epoch')
 a = ap.parse_args()
 name = a.name or f'student_{a.kd}'
@@ -55,9 +56,19 @@ nb = a.limit or len(tl); total = a.epochs * nb; warm = max(nb, 300)
 lr_at = lambda it: a.lr * (it / warm if it < warm else 0.01 + 0.99 * 0.5 * (1 + math.cos(math.pi * (it - warm) / (total - warm))))
 updates = 0
 hist = []
+start_ep = 0
+ck = f'{out}/ckpt.pt'
+if a.resume and os.path.exists(ck):
+    c = torch.load(ck, map_location='cpu', weights_only=False)
+    model.load_state_dict(c['model']); ema.load_state_dict(c['ema']); opt.load_state_dict(c['opt'])
+    if kd is not None: kd.load_state_dict(c['kd'])
+    start_ep, updates, hist = c['epoch'], c['updates'], c['hist']
+    random.setstate(c['py_rng']); np.random.set_state(c['np_rng']); torch.set_rng_state(c['torch_rng'])
+    g.manual_seed(a.seed + start_ep)
+    print(f'resumed from epoch {start_ep}', flush=True)
 print(f'{name}: student {sum(p.numel() for p in model.parameters())/1e6:.3f}M params | {len(tr)} train / {len(va)} val imgs | {nb} it/epoch', flush=True)
-for ep in range(a.epochs):
-    if ep == a.epochs - a.close_mosaic:
+for ep in range(start_ep, a.epochs):
+    if ep >= a.epochs - a.close_mosaic:
         tr.mosaic = 0.0
     model.train(); t0 = time.time(); agg = torch.zeros(6); n = 0
     for it, (imgs, targets) in enumerate(tl):
@@ -92,3 +103,7 @@ for ep in range(a.epochs):
     json.dump(hist, open(f'{out}/history.json', 'w'), indent=1)
     torch.save(ema.state_dict(), f'{out}/last.pt')
     if m['mAP50_95'] >= max(h['mAP50_95'] for h in hist): torch.save(ema.state_dict(), f'{out}/best.pt')
+    torch.save(dict(model=model.state_dict(), ema=ema.state_dict(), opt=opt.state_dict(), kd=kd.state_dict() if kd else None,
+                    epoch=ep + 1, updates=updates, hist=hist, py_rng=random.getstate(), np_rng=np.random.get_state(),
+                    torch_rng=torch.get_rng_state()), ck + '.tmp')
+    os.replace(ck + '.tmp', ck)
