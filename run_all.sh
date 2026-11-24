@@ -2,9 +2,9 @@
 # Idempotent pipeline driver: safe to re-run after a container restart, resumes wherever it stopped.
 set -u
 cd "$(dirname "$0")"; R=runs; mkdir -p $R results
-EPOCHS=${EPOCHS:-40}
+EPOCHS=${EPOCHS:-30}
 running() { pgrep -f "$1" >/dev/null; }
-if [ ! -f $R/teacher/weights/best.pt ] || ! grep -q "^ *8," $R/teacher/results.csv 2>/dev/null; then
+if [ ! -f $R/teacher/weights/best.pt ] || ! grep -q "^ *6," $R/teacher/results.csv 2>/dev/null; then
   running train_teacher.py || (cd $R && nohup python3 ../src/train_teacher.py >> teacher.log 2>&1 &)
   echo "teacher training"; exit 0
 fi

@@ -1,7 +1,7 @@
 """Fine-tune a large COCO-pretrained YOLO11 on the cyclist subset (teacher)."""
 import argparse, os
 from ultralytics import YOLO
-ap = argparse.ArgumentParser(); ap.add_argument('--model', default='yolo11l.pt'); ap.add_argument('--epochs', type=int, default=8)
+ap = argparse.ArgumentParser(); ap.add_argument('--model', default='yolo11l.pt'); ap.add_argument('--epochs', type=int, default=6)
 ap.add_argument('--imgsz', type=int, default=320); a = ap.parse_args()
 last = None
 root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
