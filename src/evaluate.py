@@ -46,13 +46,14 @@ def evaluate(model, loader, fwd=None):
             correct = np.zeros((len(d), len(IOUS)), bool)
             if len(d) and len(gt):
                 iou = torchvision.ops.box_iou(gt, d[:, :4]).numpy()
-                for j, th in enumerate(IOUS):   # ultralytics-style greedy matching per threshold
+                for j, th in enumerate(IOUS):   # ultralytics-style matching per threshold
                     x = np.argwhere(iou >= th)
                     if len(x):
                         m = np.concatenate([x, iou[x[:, 0], x[:, 1]][:, None]], 1)
                         m = m[m[:, 2].argsort()[::-1]]
-                        m = m[np.unique(m[:, 1], return_index=True)[1]]
-                        m = m[m[:, 2].argsort()[::-1]]
+                        m = m[np.unique(m[:, 1], return_index=True)[1]]  # each det -> its best-IoU GT; rows now in det order
+                        # NO re-sort by IoU here: dets are in descending-confidence order (NMS output), so keeping the first
+                        # row per GT gives the most confident det, as in COCO / ultralytics
                         m = m[np.unique(m[:, 0], return_index=True)[1]]
                         correct[m[:, 1].astype(int), j] = True
             stats.append((correct, d[:, 4].numpy()))
